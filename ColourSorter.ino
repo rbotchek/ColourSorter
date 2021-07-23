@@ -24,9 +24,12 @@ int selectorSpeed = 15;                   //Speed to move selector
 int sorterPosition[5] = {8,42,82,120,157};   //Sorter colour positions for Yellow, Orange, Red, Green and Purple
 int sorterSpeed = 5;                         //Speed to move sorter
 int sorterPos = sorterPosition[2];           //Stores current sorter position
-
+      
 void setup()
 {
+  Serial.begin(115200);
+  Serial.println("\nSkittles Colour Sorter");
+  
   pinMode (pinLED, OUTPUT);     //Assign output pins
   selector.attach(5);
   sorter.attach(9);
@@ -52,6 +55,15 @@ void loop()
   tcs.getRGB(&red, &green, &blue);      //Get the required RGB values
   tcs.setInterrupt(true);
   delay(100);
+
+  Serial.print("red = ");
+  Serial.print(red, 2);
+  Serial.print(", green = ");
+  Serial.print(green, 2);
+  Serial.print(", blue = ");
+  Serial.print(blue, 2);
+  Serial.println();
+  
   digitalWrite(pinLED, LOW);            //Turn off the sensor LED
   moveSorter (chooseTube(red,green));   //Move sorter to desired colour position
   moveSelector (1,0);                   //Drop skittle
