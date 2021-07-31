@@ -24,6 +24,10 @@
 #define SELECTOR_POS_SENSOR (SELECTOR_SPACING*1)
 #define SELECTOR_POS_SORTER (SELECTOR_SPACING*2)
 
+#define SELECTOR_JOSTLE_DEGREES      10
+#define SELECTOR_JOSTLE_COUNT        10
+#define SELECTOR_JOSTLE_DELAY        20
+
 #define COLORS              6
 
 #define SORTER_LIMIT        180
@@ -35,6 +39,10 @@
 #define SORTER_POS_GREEN    (SORTER_SPACING*3)
 #define SORTER_POS_PURPLE   (SORTER_SPACING*4)
 #define SORTER_POS_BLUE     (SORTER_SPACING*5)
+
+#define SORTER_JOSTLE_DEGREES        4
+#define SORTER_JOSTLE_COUNT          10
+#define SORTER_JOSTLE_DELAY          20
 
 typedef struct {
   float red;
@@ -51,7 +59,7 @@ COLOR_PROFILE colors[COLORS] = {
   {116.6,  69.8,  56.0, SORTER_POS_ORANGE, "Orange"},
   { 89.4,  83.2,  72.6, SORTER_POS_RED,    "Red"},
   { 57.2, 118.0,  64.9, SORTER_POS_GREEN,  "Green"},
-  { 68.5,  92.2,  78.9, SORTER_POS_PURPLE, "Purple"},
+  { 68.5,  92.2,  78.9, SORTER_POS_PURPLE, "Purple/Brown"},
   { 39.7,  90.1, 112.5, SORTER_POS_BLUE,   "Blue"}
 };
 
@@ -110,6 +118,30 @@ void moveSorter (int pos, int delayMs = 500)
   delay(delayMs);
 }
 
+void jostleSorter(int pos, int jostle = SORTER_JOSTLE_DEGREES, int count = SORTER_JOSTLE_COUNT, int delayMs = SORTER_JOSTLE_DELAY)
+{
+  int centerPos = (pos < SORTER_LIMIT) ? pos : pos - jostle;
+  for (int i = 0; i < count; i++) {
+    moveSorter(centerPos + jostle, delayMs);
+    moveSorter(centerPos - jostle, delayMs);
+  } 
+  moveSorter(pos, delayMs);
+}
+
+void homeSelector()
+{
+  moveSelector(SELECTOR_POS_SORTER);
+}
+
+void jostleSelector(int pos, int jostle = SELECTOR_JOSTLE_DEGREES, int count = SELECTOR_JOSTLE_COUNT, int delayMs = SELECTOR_JOSTLE_DELAY)
+{
+  int centerPos = (pos < SELECTOR_LIMIT) ? pos : pos - jostle;
+  for (int i = 0; i < count; i++) {
+    moveSelector(pos + jostle, delayMs);
+    moveSelector(pos, delayMs);
+  } 
+}
+
 void randomSorter()
 {
   int sorterIndex, sorterPos;
@@ -138,10 +170,18 @@ void setup()
 
 void loop()
 {
-  //randomSorter();
-  //return;
+  // Test/calibration code...
+  // randomSorter();
+  // homeSelector();
+  // return;
 
+  // Regular code follows...
+
+  // Load next candy
   moveSelector(SELECTOR_POS_HOPPER);
+  jostleSelector(SELECTOR_POS_HOPPER);
+
+  // Measure color
   moveSelector(SELECTOR_POS_SENSOR);
   
   float red, green, blue;
@@ -160,8 +200,10 @@ void loop()
   Serial.print("matched color = ");
   Serial.println(colorProfile->name);
 
+  // Deliver candy to sorter
   moveSorter(colorProfile->sorterPos);
   moveSelector(SELECTOR_POS_SORTER);
+  jostleSorter(colorProfile->sorterPos);
 }
 
 // end of file
