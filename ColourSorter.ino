@@ -1,85 +1,151 @@
-// Michael Klements
-// Skittles Colour Sorter
-// 11 January 2019
-// www.the-diy-life.com
+// ColourSorter.ino
+//
+// This is an improved version of the ColourSorter originally built/demonstrated by 
+//
+//   Michael Klements' Skittles Colour Sorter (www.the-diy-life.com).
+//
+// Notable changes:
+//
+// * Cleaner coding style, including use of #define directives and better code structure.
+// * Six colors/tubes instead of 5 to accommodate M&Ms, which add blue (Skittles don't have blue).
+// * Colors are selected based on 3-dimensional distance to measured color coordinates. Greatly 
+//   improves accuracy of color detection using same input data. Also facilitates a data-driven
+//   implementation vs. the original code-driven decision tree.
+// * 
 
-#include <Wire.h>               //Include the required libraries
-#include "Adafruit_TCS34725.h"
 #include <Servo.h>
+#include <Wire.h>
+#include "Adafruit_TCS34725.h"
+
+#define SELECTOR_LIMIT      180
+#define SELECTOR_POSITIONS  3
+#define SELECTOR_SPACING    (SELECTOR_LIMIT / (SELECTOR_POSITIONS - 1))
+#define SELECTOR_POS_HOPPER (SELECTOR_SPACING*0)
+#define SELECTOR_POS_SENSOR (SELECTOR_SPACING*1)
+#define SELECTOR_POS_SORTER (SELECTOR_SPACING*2)
+
+#define COLORS              6
 
 #define SORTER_LIMIT        180
-#define SORTER_SPACING      (SORTER_LIMIT / 5)
-#define SORTER_POS_YELLOW   (0 + 0)
-#define SORTER_POS_ORANGE   ((SORTER_SPACING*1) + 0)
-#define SORTER_POS_RED      ((SORTER_SPACING*2) + 0)
-#define SORTER_POS_GREEN    ((SORTER_SPACING*3) + 0)
-#define SORTER_POS_PURPLE   ((SORTER_SPACING*4) + 0)
-#define SORTER_POS_BLUE     ((SORTER_SPACING*5) + 0)
+#define SORTER_POSITIONS    COLORS
+#define SORTER_SPACING      (SORTER_LIMIT / (SORTER_POSITIONS - 1))
+#define SORTER_POS_YELLOW   (SORTER_SPACING*0)
+#define SORTER_POS_ORANGE   (SORTER_SPACING*1)
+#define SORTER_POS_RED      (SORTER_SPACING*2)
+#define SORTER_POS_GREEN    (SORTER_SPACING*3)
+#define SORTER_POS_PURPLE   (SORTER_SPACING*4)
+#define SORTER_POS_BLUE     (SORTER_SPACING*5)
 
-Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);   //Setup the colour sensor through Adafruit library
+typedef struct {
+  float red;
+  float green;
+  float blue;
+  int sorterPos;
+  char *name;
+} COLOR_PROFILE;
+
+// Note: Following color values based on M&Ms (which have six colors).
+
+COLOR_PROFILE colors[COLORS] = {
+  { 89.2, 102.3,  47.6, SORTER_POS_YELLOW, "Yellow"},
+  {116.6,  69.8,  56.0, SORTER_POS_ORANGE, "Orange"},
+  { 89.4,  83.2,  72.6, SORTER_POS_RED,    "Red"},
+  { 57.2, 118.0,  64.9, SORTER_POS_GREEN,  "Green"},
+  { 68.5,  92.2,  78.9, SORTER_POS_PURPLE, "Purple"},
+  { 39.7,  90.1, 112.5, SORTER_POS_BLUE,   "Blue"}
+};
+
+#define PIN_LED               4
+#define PIN_SERVO_SELECTOR    5
+#define PIN_SERVO_SORTER      9
+
+Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 Servo selector;
 Servo sorter;
 
-int pinLED = 4;      //Assign pins for the colour picker LED, push button and RGB LED
+void enableSensorLed(bool on, int delayMs = 50)
+{
+  digitalWrite(PIN_LED, on ? HIGH : LOW);
+  delay(delayMs);
+}
 
-int colourRedSP = 85;                           //Setpoint for Red to determine Yellow, Orange, Red from Green & Purple
-int colourGreenSPGP = 97;                       //Setpoint for Green to determine Green from Purple
-int colourGreenSPY = 91;                        //Setpoint for Green to determine Yellow from Orange and Red
-int colourGreenSPO = 81;                        //Setpoint for Green to determine Orange from Red
+void readColor(float *red, float *green, float *blue)
+{
+  enableSensorLed(true);
+  tcs.setInterrupt(false);          //Start measurement
+  delay(60);                        //Takes 50ms to read
+  tcs.getRGB(red, green, blue);
+  tcs.setInterrupt(true);
+  enableSensorLed(false, 100);
+}
 
-int selectorPosition[3] = {26,80,130};    //Selector positions for Drop Area, Sensor and Hopper
-int selectorSpeed = 15;                   //Speed to move selector
+int bestColorProfile(float red, float green, float blue)
+{
+  float distance;
+  float bestDistance = NULL;
+  COLOR_PROFILE *bestProfile;
+  int i;
+  
+  for (i = 0; i < COLORS; i++) {
+    COLOR_PROFILE *profile = &colors[i];
+    distance = sqrt(sq(red - profile->red) + sq(green - profile->green) + sq(blue - profile->blue));
+    if (bestDistance == NULL || distance < bestDistance) {
+      bestDistance = distance;
+      bestProfile = profile;
+    }
+  }
 
-// int sorterPosition[5] = {8,42,82,120,157};   //Sorter colour positions for Yellow, Orange, Red, Green and Purple
-int sorterPosition[6] = {SORTER_POS_YELLOW, SORTER_POS_ORANGE, SORTER_POS_RED, SORTER_POS_GREEN, SORTER_POS_PURPLE, SORTER_POS_BLUE};
-int sorterSpeed = 5;                         //Speed to move sorter
-//int sorterPos = sorterPosition[2];           //Stores current sorter position
-int sorterPos = 0;
-int sorterIndex = 0;
-int sorterValue = sorterPosition[sorterIndex];
+  return bestProfile;
+}
+
+void moveSelector (int pos, int delayMs = 500)
+{
+  selector.write(pos);
+  delay(delayMs);
+}
+
+void moveSorter (int pos, int delayMs = 500)
+{
+  sorter.write(pos);
+  delay(delayMs);
+}
+
+void randomSorter()
+{
+  int sorterIndex, sorterPos;
+  
+  sorterIndex = random(0, 6);
+  sorterPos = colors[sorterIndex].sorterPos;
+  Serial.print("Selector to ");
+  Serial.print(sorterIndex);
+  Serial.print(", ");
+  Serial.print(sorterPos);
+  Serial.println();
+  moveSorter(sorterPos, 1000);
+}
 
 void setup()
 {
   Serial.begin(115200);
   Serial.println("\nSkittles Colour Sorter");
   
-  pinMode (pinLED, OUTPUT);     //Assign output pins
-  selector.attach(5);
-  sorter.attach(9);
-  tcs.begin();                //Connect to the colour sensor
-  digitalWrite(pinLED, LOW);  //Turn off the sensor's white LED
-  selector.write(selectorPosition[0]);  //Set selector to drop position to start
-  delay(500);
-  sorter.write(sorterPos);            //Set sorter to middle position to start
-  delay(500);
+  pinMode (PIN_LED, OUTPUT); 
+  selector.attach(PIN_SERVO_SELECTOR);
+  sorter.attach(PIN_SERVO_SORTER);
+  tcs.begin();
+  enableSensorLed(false);
 }
 
 void loop()
 {
-  sorterIndex = random(0, 6);
-  sorterValue = sorterPosition[sorterIndex];
-  Serial.print("Selector to ");
-  Serial.print(sorterIndex);
-  Serial.print(", ");
-  Serial.print(sorterValue);
-  Serial.println();
-  //moveSorter(sorterPosition[sorterIndex]);
-  sorter.write(sorterValue);
-  delay(1000);
-  return;
+  //randomSorter();
+  //return;
+
+  moveSelector(SELECTOR_POS_HOPPER);
+  moveSelector(SELECTOR_POS_SENSOR);
   
-  moveSelector(0,2);                    //Move selector from drop position to hopper
-  delay(200);
-  moveSelector(2,1);                    //Move skittle from hopper to sensor
-  delay(200);
   float red, green, blue;
-  digitalWrite(pinLED, HIGH);           //Turn the sensor LED on for identification
-  delay(50);
-  tcs.setInterrupt(false);              //Start measurement
-  delay(60);                            //Takes 50ms to read
-  tcs.getRGB(&red, &green, &blue);      //Get the required RGB values
-  tcs.setInterrupt(true);
-  delay(100);
+  readColor(&red, &green, &blue);
 
   Serial.print("red = ");
   Serial.print(red, 2);
@@ -88,100 +154,14 @@ void loop()
   Serial.print(", blue = ");
   Serial.print(blue, 2);
   Serial.println();
-  
-  digitalWrite(pinLED, LOW);            //Turn off the sensor LED
-  moveSorter (chooseTube(red,green));   //Move sorter to desired colour position
-  moveSelector (1,0);                   //Drop skittle
+
+  COLOR_PROFILE *colorProfile;
+  colorProfile = bestColorProfile(red, green, blue);
+  Serial.print("matched color = ");
+  Serial.println(colorProfile->name);
+
+  moveSorter(colorProfile->sorterPos);
+  moveSelector(SELECTOR_POS_SORTER);
 }
 
-int chooseTube (int red, int green)
-{
-  int tempPosition;
-  if (red >= colourRedSP)                      //If red is high
-  {
-    if (green >= colourGreenSPY)               //If green is high
-    {
-      tempPosition = sorterPosition[0];        //Colour is yellow
-    }
-    else if (green <= colourGreenSPO)          //If green is low
-    {
-      tempPosition = sorterPosition[1];        //Colour is orange
-    }
-    else                                       //Else green must be medium
-    {
-      tempPosition = sorterPosition[2];        //Colour is red
-    }
-  }
-  else                                         //Red must be medium or low
-  {
-    if (green >= colourGreenSPGP)              //If green is high
-    {
-      tempPosition = sorterPosition[3];        //Colour is green
-    }
-    else                                       //Else green must be medium or low
-    {
-      tempPosition = sorterPosition[4];        //Colour is purple
-    }
-  }
-  return tempPosition;
-}
-
-void moveSelector (int pos, int target)
-{
-  if (pos < target)                            //Determine movement direction
-  {
-    for (int i=selectorPosition[pos]; i<=selectorPosition[target] ; i++) 
-    {
-      selector.write(i);      //Move servo in 1 degree increments with a delay between each
-      delay(selectorSpeed);
-    }
-  }
-  else
-  {
-    for (int i=selectorPosition[pos]; i>=selectorPosition[target] ; i--) 
-    {
-      selector.write(i);     //Move servo in 1 degree increments with a delay between each
-      delay(selectorSpeed);
-    }
-  }
-}
-
-void moveSorter (int target)
-{
-  if (sorterPos < target)      //Determine movement direction
-  {
-    for (int i=sorterPos; i<=target ; i++) //Move servo in 1 degree increments with a delay between each
-    {
-      sorter.write(i);
-      delay(sorterSpeed);
-    }
-  }
-  else if (sorterPos > target)
-  {
-    for (int i=sorterPos; i>=target ; i--) //Move servo in 1 degree increments with a delay between each
-    {
-      sorter.write(i);
-      delay(sorterSpeed);
-    }
-  }
-  sorterPos = target;           //Update current sorter position
-}
-
-void calibrateSorter ()
-{
-  for (int i=0; i<=4; i++)
-  {
-    moveSorter (sorterPosition[i]);
-    delay(2000);
-  }
-}
-
-void calibrateSelector ()
-{
-    selector.write(selectorPosition[2]);
-    delay(2000);
-    moveSelector (2,1);
-    delay(2000);
-    moveSelector (1,0);
-    delay(2000);
-}
+// end of file
