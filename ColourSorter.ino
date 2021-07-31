@@ -7,11 +7,12 @@
 // Notable changes:
 //
 // * Cleaner coding style, including use of #define directives and better code structure.
+// * Serial port logging of color measurements and selected color.
 // * Six colors/tubes instead of 5 to accommodate M&Ms, which add blue (Skittles don't have blue).
 // * Colors are selected based on 3-dimensional distance to measured color coordinates. Greatly 
 //   improves accuracy of color detection using same input data. Also facilitates a data-driven
 //   implementation vs. the original code-driven decision tree.
-// * 
+// * Jostling is added in an attempt to improve selector and sorter function.
 
 #include <Servo.h>
 #include <Wire.h>
@@ -106,6 +107,19 @@ int bestColorProfile(float red, float green, float blue)
   return bestProfile;
 }
 
+void logColor(float red, float green, float blue, COLOR_PROFILE *colorProfile)
+{
+  Serial.print("red = ");
+  Serial.print(red, 2);
+  Serial.print(", green = ");
+  Serial.print(green, 2);
+  Serial.print(", blue = ");
+  Serial.print(blue, 2);
+ 
+  Serial.print(": matched color = ");
+  Serial.println(colorProfile->name);
+}
+
 void moveSelector (int pos, int delayMs = 500)
 {
   selector.write(pos);
@@ -187,18 +201,9 @@ void loop()
   float red, green, blue;
   readColor(&red, &green, &blue);
 
-  Serial.print("red = ");
-  Serial.print(red, 2);
-  Serial.print(", green = ");
-  Serial.print(green, 2);
-  Serial.print(", blue = ");
-  Serial.print(blue, 2);
-  Serial.println();
-
   COLOR_PROFILE *colorProfile;
   colorProfile = bestColorProfile(red, green, blue);
-  Serial.print("matched color = ");
-  Serial.println(colorProfile->name);
+  logColor(red, green, blue, colorProfile);
 
   // Deliver candy to sorter
   moveSorter(colorProfile->sorterPos);
