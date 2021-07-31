@@ -7,6 +7,15 @@
 #include "Adafruit_TCS34725.h"
 #include <Servo.h>
 
+#define SORTER_LIMIT        180
+#define SORTER_SPACING      (SORTER_LIMIT / 5)
+#define SORTER_POS_YELLOW   (0 + 0)
+#define SORTER_POS_ORANGE   ((SORTER_SPACING*1) + 0)
+#define SORTER_POS_RED      ((SORTER_SPACING*2) + 0)
+#define SORTER_POS_GREEN    ((SORTER_SPACING*3) + 0)
+#define SORTER_POS_PURPLE   ((SORTER_SPACING*4) + 0)
+#define SORTER_POS_BLUE     ((SORTER_SPACING*5) + 0)
+
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);   //Setup the colour sensor through Adafruit library
 Servo selector;
 Servo sorter;
@@ -21,10 +30,14 @@ int colourGreenSPO = 81;                        //Setpoint for Green to determin
 int selectorPosition[3] = {26,80,130};    //Selector positions for Drop Area, Sensor and Hopper
 int selectorSpeed = 15;                   //Speed to move selector
 
-int sorterPosition[5] = {8,42,82,120,157};   //Sorter colour positions for Yellow, Orange, Red, Green and Purple
+// int sorterPosition[5] = {8,42,82,120,157};   //Sorter colour positions for Yellow, Orange, Red, Green and Purple
+int sorterPosition[6] = {SORTER_POS_YELLOW, SORTER_POS_ORANGE, SORTER_POS_RED, SORTER_POS_GREEN, SORTER_POS_PURPLE, SORTER_POS_BLUE};
 int sorterSpeed = 5;                         //Speed to move sorter
-int sorterPos = sorterPosition[2];           //Stores current sorter position
-      
+//int sorterPos = sorterPosition[2];           //Stores current sorter position
+int sorterPos = 0;
+int sorterIndex = 0;
+int sorterValue = sorterPosition[sorterIndex];
+
 void setup()
 {
   Serial.begin(115200);
@@ -43,6 +56,18 @@ void setup()
 
 void loop()
 {
+  sorterIndex = random(0, 6);
+  sorterValue = sorterPosition[sorterIndex];
+  Serial.print("Selector to ");
+  Serial.print(sorterIndex);
+  Serial.print(", ");
+  Serial.print(sorterValue);
+  Serial.println();
+  //moveSorter(sorterPosition[sorterIndex]);
+  sorter.write(sorterValue);
+  delay(1000);
+  return;
+  
   moveSelector(0,2);                    //Move selector from drop position to hopper
   delay(200);
   moveSelector(2,1);                    //Move skittle from hopper to sensor
