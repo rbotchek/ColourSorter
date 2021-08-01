@@ -88,6 +88,11 @@ void readColor(float *red, float *green, float *blue)
   enableSensorLed(false, 100);
 }
 
+float colorProfileDistance(COLOR_PROFILE *profile, float red, float green, float blue)
+{
+  return sqrt(sq(red - profile->red) + sq(green - profile->green) + sq(blue - profile->blue));
+}
+
 int bestColorProfile(float red, float green, float blue)
 {
   float distance;
@@ -97,7 +102,7 @@ int bestColorProfile(float red, float green, float blue)
   
   for (i = 0; i < COLORS; i++) {
     COLOR_PROFILE *profile = &colors[i];
-    distance = sqrt(sq(red - profile->red) + sq(green - profile->green) + sq(blue - profile->blue));
+    distance = colorProfileDistance(profile, red, green, blue);
     if (bestDistance == NULL || distance < bestDistance) {
       bestDistance = distance;
       bestProfile = profile;
@@ -109,6 +114,8 @@ int bestColorProfile(float red, float green, float blue)
 
 void logColor(float red, float green, float blue, COLOR_PROFILE *colorProfile)
 {
+  float distance = colorProfileDistance(colorProfile, red, green, blue);
+
   Serial.print("red = ");
   Serial.print(red, 2);
   Serial.print(", green = ");
@@ -117,7 +124,11 @@ void logColor(float red, float green, float blue, COLOR_PROFILE *colorProfile)
   Serial.print(blue, 2);
  
   Serial.print(": matched color = ");
-  Serial.println(colorProfile->name);
+  Serial.print(colorProfile->name);
+
+  Serial.print(", color distance = ");
+  Serial.print(distance, 2);
+  Serial.println();
 }
 
 void moveSelector (int pos, int delayMs = 500)
