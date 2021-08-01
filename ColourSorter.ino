@@ -29,10 +29,8 @@
 #define SELECTOR_JOSTLE_COUNT        10
 #define SELECTOR_JOSTLE_DELAY        20
 
-#define COLORS              6
-
 #define SORTER_LIMIT        180
-#define SORTER_POSITIONS    COLORS
+#define SORTER_POSITIONS    6
 #define SORTER_SPACING      (SORTER_LIMIT / (SORTER_POSITIONS - 1))
 #define SORTER_POS_YELLOW   (SORTER_SPACING*0)
 #define SORTER_POS_ORANGE   (SORTER_SPACING*1)
@@ -53,16 +51,21 @@ typedef struct {
   char *name;
 } COLOR_PROFILE;
 
-// Note: Following color values based on M&Ms (which have six colors).
-
-COLOR_PROFILE colors[COLORS] = {
-  { 89.2, 102.3,  47.6, SORTER_POS_YELLOW, "Yellow"},
-  {116.6,  69.8,  56.0, SORTER_POS_ORANGE, "Orange"},
-  { 89.4,  83.2,  72.6, SORTER_POS_RED,    "Red"},
-  { 57.2, 118.0,  64.9, SORTER_POS_GREEN,  "Green"},
-  { 68.5,  92.2,  78.9, SORTER_POS_PURPLE, "Purple/Brown"},
-  { 39.7,  90.1, 112.5, SORTER_POS_BLUE,   "Blue"}
+COLOR_PROFILE colors[] = {
+  { 89.2, 102.3,  47.6, SORTER_POS_YELLOW, "Yellow M&M"},
+  { 88.1, 106.7,  40.7, SORTER_POS_YELLOW, "Yellow Skittle"},
+  {116.6,  69.8,  56.0, SORTER_POS_ORANGE, "Orange M&M"},
+  {125.0,  69.4,  45.9, SORTER_POS_ORANGE, "Orange Skittle"},
+  { 89.4,  83.2,  72.6, SORTER_POS_RED,    "Red M&M"},
+  { 92.8,  83.7,  68.3, SORTER_POS_RED,    "Red Skittle"},
+  { 57.2, 118.0,  64.9, SORTER_POS_GREEN,  "Green M&M"},
+  { 57.3, 125.9,  54.2, SORTER_POS_GREEN,  "Green Skittle"},
+  { 68.5,  92.2,  78.9, SORTER_POS_PURPLE, "Brown M&M"},
+  { 67.0,  92.6,  80.4, SORTER_POS_PURPLE, "Purple Skittle"},
+  { 39.7,  90.1, 112.5, SORTER_POS_BLUE,   "Blue M&M"}
 };
+
+#define COLORS            (sizeof(colors)/sizeof(COLOR_PROFILE))
 
 #define PIN_LED               4
 #define PIN_SERVO_SELECTOR    5
